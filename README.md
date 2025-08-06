@@ -6,7 +6,11 @@
 
 - API接口创建、查看、修改、删除
 - 增量更新和字段删除
-- 搜索和批量操作
+- 强化的目录层级搜索和父子关系定位
+- 递归搜索子目录，支持深度限制
+- 多维度搜索和批量操作
+- 树形结构和分组显示
+- 完整路径显示
 - 支持完整的参数配置
 
 ## 安装
@@ -64,9 +68,24 @@ npm install && npm run build
 |------|------|---------|
 | `apipost_smart_create` | 创建接口 | `method`, `url`, `name` |
 | `apipost_detail` | 查看详情 | `target_id` |
-| `apipost_list` | 接口列表 | `search`, `limit` |
+| `apipost_list` | 强化列表搜索 | `search`, `parent_id`, `target_type`, `show_structure`, `recursive`, `group_by_folder` |
 | `apipost_update` | 修改接口 | `target_id`, 其他可选 |
 | `apipost_delete` | 删除接口 | `api_ids` |
+
+### apipost_list 参数说明
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `search` | string | 搜索关键词（接口名称、URL、方法、ID、描述） |
+| `parent_id` | string | 父目录ID，精确查找子项目。"0"为根目录 |
+| `target_type` | string | 类型筛选：`api`(仅接口)、`folder`(仅目录)、`all`(全部) |
+| `show_structure` | boolean | 显示树形结构，默认false为列表模式 |
+| `show_path` | boolean | 显示完整路径，默认false |
+| `recursive` | boolean | 递归搜索子目录，默认false |
+| `depth` | number | 深度限制（配合recursive），默认无限制 |
+| `group_by_folder` | boolean | 按目录分组显示，默认false |
+| `limit` | number | 显示数量限制（默认50，最大200） |
+| `show_all` | boolean | 显示全部（忽略limit限制） |
 
 
 ## 获取 Token

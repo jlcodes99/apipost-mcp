@@ -59,6 +59,347 @@ function logWithTime(message: string, startTime?: number): void {
   console.error(message);
 }
 
+// 构建项目路径映射
+function buildPathMap(allItems: any[]): Map<string, string[]> {
+  const pathMap = new Map<string, string[]>();
+  const itemMap = new Map<string, any>();
+  
+  // 建立ID到项目的映射
+  allItems.forEach(item => {
+    itemMap.set(item.target_id, item);
+  });
+  
+  // 递归构建路径（带循环检测）
+  function buildPath(targetId: string, visited: Set<string> = new Set()): string[] {
+    if (pathMap.has(targetId)) {
+      return pathMap.get(targetId)!;
+    }
+    
+    // 检测循环引用
+    if (visited.has(targetId)) {
+      console.warn(`检测到循环引用: ${targetId}`);
+      return [];
+    }
+    
+    const item = itemMap.get(targetId);
+    if (!item) return [];
+    
+    visited.add(targetId);
+    
+    const path: string[] = [];
+    if (item.parent_id && item.parent_id !== '0') {
+      const parentPath = buildPath(item.parent_id, visited);
+      path.push(...parentPath);
+    }
+    path.push(item.name);
+    
+    pathMap.set(targetId, path);
+    visited.delete(targetId);
+    return path;
+  }
+  
+  // 为所有项目构建路径
+  allItems.forEach(item => {
+    buildPath(item.target_id);
+  });
+  
+  return pathMap;
+}
+
+// 递归获取子项目
+function getChildrenRecursively(items: any[], parentId: string, maxDepth?: number, currentDepth: number = 0): any[] {
+  if (maxDepth !== undefined && currentDepth >= maxDepth) {
+    return [];
+  }
+  
+  const children = items.filter(item => item.parent_id === parentId);
+  const result = [...children];
+  
+  children.forEach(child => {
+    if (child.target_type === 'folder') {
+      result.push(...getChildrenRecursively(items, child.target_id, maxDepth, currentDepth + 1));
+    }
+  });
+  
+  return result;
+}
+
+// 按目录分组项目
+function groupByFolder(items: any[], allItems: any[]): { [key: string]: any[] } {
+  const groups: { [key: string]: any[] } = {};
+  const folderMap = new Map<string, any>();
+  
+  // 建立目录映射
+  allItems.filter(item => item.target_type === 'folder').forEach(folder => {
+    folderMap.set(folder.target_id, folder);
+  });
+  
+  items.forEach(item => {
+    const parentId = item.parent_id || '0';
+    const parentName = parentId === '0' ? '根目录' : (folderMap.get(parentId)?.name || `未知目录(${parentId})`);
+    
+    if (!groups[parentName]) {
+      groups[parentName] = [];
+    }
+    groups[parentName].push(item);
+  });
+  
+  return groups;
+}
+
+// 构建层级结构显示
+function buildListDisplay(
+  items: any[], 
+  totalCount: number, 
+  filteredCount: number, 
+  showStructure: boolean, 
+  searchKeyword?: string, 
+  parentId?: string, 
+  targetType?: string, 
+  isLimited?: boolean, 
+  limit?: number,
+  showPath?: boolean,
+  recursive?: boolean,
+  depth?: number,
+  groupByFolderFlag?: boolean,
+  allItems?: any[]
+): string {
+  let listText = '';
+  
+  // 标题信息
+  if (recursive) {
+    listText += `🌲 递归搜索视图`;
+    if (depth !== undefined) listText += ` (深度限制: ${depth})`;
+    listText += `\n`;
+  } else if (parentId !== undefined) {
+    listText += `📁 目录层级视图 (父目录ID: ${parentId})\n`;
+  } else {
+    listText += `📋 项目完整列表\n`;
+  }
+  
+  listText += `总计: ${totalCount}项, 当前显示: ${items.length}项\n\n`;
+  
+  // 筛选信息
+  const filterInfo = [];
+  if (searchKeyword) filterInfo.push(`搜索: "${searchKeyword}"`);
+  if (parentId !== undefined) filterInfo.push(`父目录: ${parentId === '0' ? '根目录' : parentId}`);
+  if (targetType && targetType !== 'all') filterInfo.push(`类型: ${targetType}`);
+  if (recursive) filterInfo.push(`递归搜索: 是`);
+  if (depth !== undefined) filterInfo.push(`深度限制: ${depth}`);
+  
+  if (filterInfo.length > 0) {
+    listText += `🔍 筛选条件: ${filterInfo.join(' | ')}\n`;
+    listText += `筛选结果: ${filteredCount}项\n\n`;
+  }
+  
+  if (isLimited) {
+    listText += `⚠️ 显示限制: 仅显示前${limit}项，如需查看更多请使用搜索过滤\n\n`;
+  }
+  
+  if (items.length === 0) {
+    listText += '📭 未找到匹配的项目\n\n';
+    listText += '💡 提示:\n';
+    listText += '• 尝试调整搜索关键词\n';
+    listText += '• 检查父目录ID是否正确\n';
+    listText += '• 使用不同的类型筛选\n';
+    listText += '• 尝试使用 recursive=true 递归搜索子目录\n';
+    return listText;
+  }
+  
+  // 构建路径映射（如果需要显示路径）
+  let pathMap: Map<string, string[]> | undefined;
+  if (showPath && allItems) {
+    pathMap = buildPathMap(allItems);
+  }
+  
+  if (groupByFolderFlag && allItems) {
+    // 按目录分组显示
+    listText += buildGroupedList(items, allItems, pathMap);
+  } else if (showStructure) {
+    // 树形结构显示
+    listText += buildTreeStructure(items, pathMap);
+  } else {
+    // 列表模式显示
+    listText += buildFlatList(items, pathMap);
+  }
+  
+  // 操作提示
+  listText += '\n💡 使用提示:\n';
+  listText += '• 使用 parent_id 参数查看特定目录下的内容\n';
+  listText += '• 使用 target_type="folder" 仅查看目录\n';
+  listText += '• 使用 target_type="api" 仅查看接口\n';
+  listText += '• 使用 show_structure=true 查看树形结构\n';
+  listText += '• 使用 show_path=true 显示完整路径\n';
+  listText += '• 使用 recursive=true 递归搜索子目录\n';
+  listText += '• 使用 group_by_folder=true 按目录分组显示\n';
+  
+  return listText;
+}
+
+// 构建树形结构
+function buildTreeStructure(items: any[], pathMap?: Map<string, string[]>): string {
+  let result = '🌳 树形结构:\n\n';
+  
+  // 按类型分组，目录在前，接口在后
+  const folders = items.filter(item => item.target_type === 'folder');
+  const apis = items.filter(item => item.target_type === 'api');
+  
+  // 显示目录
+  if (folders.length > 0) {
+    result += '📁 目录:\n';
+    folders.forEach((folder, index) => {
+      const isLast = index === folders.length - 1 && apis.length === 0;
+      const prefix = isLast ? '└── ' : '├── ';
+      result += `${prefix}${folder.name}\n`;
+      result += `    📋 ID: ${folder.target_id}\n`;
+      
+      // 显示完整路径
+      if (pathMap && pathMap.has(folder.target_id)) {
+        const path = pathMap.get(folder.target_id)!;
+        result += `    📍 路径: ${path.join(' / ')}\n`;
+      }
+      
+      if (folder.description) {
+        result += `    📝 描述: ${folder.description}\n`;
+      }
+      result += '\n';
+    });
+  }
+  
+  // 显示接口
+  if (apis.length > 0) {
+    result += '🔗 接口:\n';
+    apis.forEach((api, index) => {
+      const isLast = index === apis.length - 1;
+      const prefix = isLast ? '└── ' : '├── ';
+      result += `${prefix}${api.name}`;
+      if (api.method) result += ` [${api.method}]`;
+      result += '\n';
+      result += `    🌐 URL: ${api.url || '未设置'}\n`;
+      result += `    📋 ID: ${api.target_id}\n`;
+      
+      // 显示完整路径
+      if (pathMap && pathMap.has(api.target_id)) {
+        const path = pathMap.get(api.target_id)!;
+        result += `    📍 路径: ${path.join(' / ')}\n`;
+      }
+      
+      if (api.description) {
+        result += `    📝 描述: ${api.description}\n`;
+      }
+      result += '\n';
+    });
+  }
+  
+  return result;
+}
+
+// 构建平铺列表
+function buildFlatList(items: any[], pathMap?: Map<string, string[]>): string {
+  let result = '📋 项目列表:\n\n';
+  
+  items.forEach((item, index) => {
+    const num = (index + 1).toString().padStart(2, ' ');
+    
+    if (item.target_type === 'folder') {
+      // 目录项
+      result += `${num}. 📁 ${item.name}\n`;
+      result += `     类型: 目录\n`;
+      result += `     ID: ${item.target_id}\n`;
+      result += `     父目录: ${item.parent_id === '0' ? '根目录' : item.parent_id}\n`;
+      
+      // 显示完整路径
+      if (pathMap && pathMap.has(item.target_id)) {
+        const path = pathMap.get(item.target_id)!;
+        result += `     路径: ${path.join(' / ')}\n`;
+      }
+      
+      if (item.description) {
+        result += `     描述: ${item.description}\n`;
+      }
+    } else {
+      // 接口项
+      result += `${num}. 🔗 ${item.name}`;
+      if (item.method) result += ` [${item.method}]`;
+      result += '\n';
+      result += `     类型: 接口\n`;
+      result += `     URL: ${item.url || '未设置'}\n`;
+      result += `     ID: ${item.target_id}\n`;
+      result += `     父目录: ${item.parent_id === '0' ? '根目录' : item.parent_id}\n`;
+      
+      // 显示完整路径
+      if (pathMap && pathMap.has(item.target_id)) {
+        const path = pathMap.get(item.target_id)!;
+        result += `     路径: ${path.join(' / ')}\n`;
+      }
+      
+      if (item.description) {
+        result += `     描述: ${item.description}\n`;
+      }
+    }
+    result += '\n';
+  });
+  
+  return result;
+}
+
+// 构建分组列表
+function buildGroupedList(items: any[], allItems: any[], pathMap?: Map<string, string[]>): string {
+  let result = '📂 按目录分组显示:\n\n';
+  
+  const groups = groupByFolder(items, allItems);
+  const groupNames = Object.keys(groups).sort();
+  
+  groupNames.forEach((groupName, groupIndex) => {
+    const groupItems = groups[groupName];
+    const isLastGroup = groupIndex === groupNames.length - 1;
+    
+    result += `📁 ${groupName} (${groupItems.length}项)\n`;
+    result += `${isLastGroup ? '   ' : '│  '}\n`;
+    
+    groupItems.forEach((item, index) => {
+      const isLastItem = index === groupItems.length - 1;
+      const itemPrefix = isLastGroup ? 
+        (isLastItem ? '   └── ' : '   ├── ') :
+        (isLastItem ? '│  └── ' : '│  ├── ');
+      
+      if (item.target_type === 'folder') {
+        result += `${itemPrefix}📁 ${item.name}\n`;
+        if (!isLastGroup || !isLastItem) {
+          result += `${isLastGroup ? '       ' : '│      '}📋 ID: ${item.target_id}\n`;
+        } else {
+          result += `       📋 ID: ${item.target_id}\n`;
+        }
+      } else {
+        result += `${itemPrefix}🔗 ${item.name}`;
+        if (item.method) result += ` [${item.method}]`;
+        result += '\n';
+        if (!isLastGroup || !isLastItem) {
+          result += `${isLastGroup ? '       ' : '│      '}📋 ID: ${item.target_id}\n`;
+          result += `${isLastGroup ? '       ' : '│      '}🌐 URL: ${item.url || '未设置'}\n`;
+        } else {
+          result += `       📋 ID: ${item.target_id}\n`;
+          result += `       🌐 URL: ${item.url || '未设置'}\n`;
+        }
+      }
+      
+      // 显示完整路径
+      if (pathMap && pathMap.has(item.target_id)) {
+        const path = pathMap.get(item.target_id)!;
+        if (!isLastGroup || !isLastItem) {
+          result += `${isLastGroup ? '       ' : '│      '}📍 路径: ${path.join(' / ')}\n`;
+        } else {
+          result += `       📍 路径: ${path.join(' / ')}\n`;
+        }
+      }
+    });
+    
+    result += '\n';
+  });
+  
+  return result;
+}
+
 // 解析API配置
 function parseApiConfig(configJson?: string): any {
   if (!configJson) return {};
@@ -342,15 +683,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         additionalProperties: false
       }
     },
-    {
+        {
       name: 'apipost_list',
-      description: '查看项目API列表，默认显示50条，支持搜索过滤',
-    inputSchema: {
-      type: 'object',
-      properties: {
-          search: { type: 'string', description: '搜索关键词' },
-          limit: { type: 'number', description: '显示数量限制（默认50）' },
-          show_all: { type: 'boolean', description: '显示全部接口' }
+      description: '查看项目API列表，支持强化的目录层级搜索和父子关系定位',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          search: { type: 'string', description: '搜索关键词（接口名称、URL、方法、ID、描述）' },
+          parent_id: { type: 'string', description: '父目录ID，精确查找某个目录下的子项目。使用"0"查看根目录，使用具体ID查看子目录' },
+          target_type: { type: 'string', enum: ['api', 'folder', 'all'], description: '项目类型筛选：api(仅接口)、folder(仅目录)、all(全部)，默认all' },
+          show_structure: { type: 'boolean', description: '是否显示层级结构（树形展示），默认false为列表模式' },
+          show_path: { type: 'boolean', description: '是否显示完整路径（从根目录到当前项目的完整路径），默认false' },
+          recursive: { type: 'boolean', description: '是否递归搜索子目录（搜索指定目录及其所有子目录），默认false仅搜索当前层级' },
+          depth: { type: 'number', description: '层级深度限制（配合recursive使用，限制搜索深度），默认无限制' },
+          group_by_folder: { type: 'boolean', description: '是否按目录分组显示结果，默认false' },
+          limit: { type: 'number', description: '显示数量限制（默认50，最大200）' },
+          show_all: { type: 'boolean', description: '显示全部项目（忽略limit限制）' }
         }
       }
     },
@@ -444,15 +792,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const bodyCount = config.body?.length || 0;
           const responseCount = config.responses?.length || 0;
           
-          const result = await apiClient.post('/open/apis/create', template);
+          const createResult = await apiClient.post('/open/apis/create', template);
           
-          if (result.data.code !== 0) {
-            throw new Error(`创建失败: ${result.data.msg}`);
+          if (createResult.data.code !== 0) {
+            throw new Error(`创建失败: ${createResult.data.msg}`);
           }
           
           logWithTime(`
 ✅ API创建成功!
-目标ID: ${result.data.data.target_id}
+目标ID: ${createResult.data.data.target_id}
 接口名称: ${args.name}
 请求方法: ${args.method}
 接口地址: ${args.url}
@@ -460,7 +808,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return {
             content: [{
               type: 'text',
-              text: `API创建成功!\n名称: ${args.name}\n方法: ${args.method}\nURL: ${args.url}\nID: ${result.data.data.target_id}\n\n字段统计:\n• Headers: ${headerCount}个\n• Query参数: ${queryCount}个\n• Body参数: ${bodyCount}个\n• 响应示例: ${responseCount}个`
+              text: `API创建成功!\n名称: ${args.name}\n方法: ${args.method}\nURL: ${args.url}\nID: ${createResult.data.data.target_id}\n\n字段统计:\n• Headers: ${headerCount}个\n• Query参数: ${queryCount}个\n• Body参数: ${bodyCount}个\n• 响应示例: ${responseCount}个`
             }]
           };
         
@@ -468,7 +816,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!checkSecurityPermission('read')) {
           throw new Error(`🔒 安全模式 "${APIPOST_SECURITY_MODE}" 不允许读取操作。`);
         }
+        
         const searchKeyword = args.search as string;
+        const parentId = args.parent_id as string;
+        const targetType = (args.target_type as string) || 'all';
+        const showStructure = args.show_structure as boolean;
+        const showPath = args.show_path as boolean;
+        const recursive = args.recursive as boolean;
+        const depth = args.depth as number;
+        const groupByFolderFlag = args.group_by_folder as boolean;
         const limit = Math.min((args.limit as number) || 50, 200);
         const showAll = args.show_all as boolean;
         
@@ -482,6 +838,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         
         let items = listResult.data.data.list;
         const totalCount = items.length;
+        const allItems = [...items]; // 保存完整列表用于路径构建和分组
+        
+        // 递归搜索或按目录过滤
+        if (recursive && parentId !== undefined) {
+          // 递归搜索指定目录及其子目录
+          items = getChildrenRecursively(items, parentId, depth);
+        } else if (parentId !== undefined) {
+          // 仅搜索当前层级
+          items = items.filter((item: any) => item.parent_id === parentId);
+        }
+        
+        // 按类型过滤
+        if (targetType !== 'all') {
+          items = items.filter((item: any) => item.target_type === targetType);
+        }
         
         // 搜索过滤
         if (searchKeyword) {
@@ -504,33 +875,41 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           displayItems = items.slice(0, limit);
           isLimited = true;
         }
-        let listText = `项目API列表 (总计: ${totalCount}, 显示: ${displayItems.length})\n\n`;
         
-        if (searchKeyword) {
-          listText += `搜索结果: ${filteredCount} 个 (关键词: "${searchKeyword}")\n\n`;
-        }
+        // 构建显示文本
+        const listResult_display = buildListDisplay(
+          displayItems, 
+          totalCount, 
+          filteredCount, 
+          showStructure, 
+          searchKeyword, 
+          parentId, 
+          targetType, 
+          isLimited, 
+          limit,
+          showPath,
+          recursive,
+          depth,
+          groupByFolderFlag,
+          allItems
+        );
         
-        if (isLimited) {
-          listText += `提示: 结果已限制显示前${limit}条，如需查看更多请使用搜索过滤\n\n`;
-        }
+        // 构建日志信息
+        const filterInfo = [];
+        if (parentId !== undefined) filterInfo.push(`父目录: ${parentId}`);
+        if (targetType !== 'all') filterInfo.push(`类型: ${targetType}`);
+        if (searchKeyword) filterInfo.push(`搜索: "${searchKeyword}"`);
+        if (recursive) filterInfo.push('递归搜索');
+        if (depth !== undefined) filterInfo.push(`深度限制: ${depth}`);
         
-        if (displayItems.length === 0) {
-          listText += '未找到匹配的接口';
-          } else {
-          displayItems.forEach((item: any, index: number) => {
-            listText += `${index + 1}. ${item.name}`;
-            if (item.method) listText += ` [${item.method}]`;
-            if (item.url) listText += ` ${item.url}`;
-            listText += `\n   ID: ${item.target_id}\n\n`;
-          });
-        }
-
-        const searchInfo = searchKeyword ? `\n搜索关键词: "${searchKeyword}" (${filteredCount}/${totalCount})` : '';
+        const logInfo = filterInfo.length > 0 ? `\n筛选条件: ${filterInfo.join(', ')}` : '';
         const limitInfo = isLimited ? `\n显示限制: 前${limit}条` : '';
+        
         logWithTime(`✅ 接口列表获取成功!
-总数: ${totalCount}个${searchInfo}${limitInfo}`);
+总数: ${totalCount}个, 筛选后: ${filteredCount}个${logInfo}${limitInfo}`);
+        
         return {
-          content: [{ type: 'text', text: listText }]
+          content: [{ type: 'text', text: listResult_display }]
         };
 
       case 'apipost_update':
