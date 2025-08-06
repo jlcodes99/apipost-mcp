@@ -669,17 +669,38 @@ const server = new Server({
 // 工具定义
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
-    {
-      name: 'apipost_test_connection',
-      description: '测试ApiPost MCP连接状态和配置信息，验证服务可用性',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          random_string: { type: 'string', description: 'Dummy parameter for no-parameter tools' }
-        },
-        required: ['random_string']
-      }
-    },
+          {
+        name: 'apipost_test_connection',
+        description: '测试ApiPost MCP连接状态和配置信息，验证服务可用性',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            random_string: { type: 'string', description: 'Dummy parameter for no-parameter tools' }
+          },
+          required: ['random_string']
+        }
+      },
+      {
+        name: 'apipost_workspace',
+        description: '工作空间管理：查看当前工作空间、列出团队和项目、切换工作空间',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            action: { 
+              type: 'string', 
+              enum: ['current', 'list_teams', 'list_projects', 'switch'], 
+              description: '操作类型：current(查看当前)、list_teams(列出团队)、list_projects(列出项目)、switch(切换工作空间)' 
+            },
+            team_id: { type: 'string', description: '团队ID（用于list_projects或switch）' },
+            project_id: { type: 'string', description: '项目ID（用于switch）' },
+            team_name: { type: 'string', description: '团队名称（用于按名称切换）' },
+            project_name: { type: 'string', description: '项目名称（用于按名称切换）' },
+            show_details: { type: 'boolean', description: '是否显示详细信息，默认false' },
+            show_all: { type: 'boolean', description: '是否显示所有可用的团队和项目，默认false' }
+          },
+          required: ['action']
+        }
+      },
     {
       name: 'apipost_smart_create',
       description: 'API接口文档生成器。支持通过分离参数创建完整的API文档，包括请求参数、响应格式、认证方式等。',
@@ -857,6 +878,252 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
             }
           ]
         };
+
+      case 'apipost_workspace':
+        const action = args.action as string;
+        
+        switch (action) {
+          case 'current':
+            // 查看当前工作空间
+            const showAll = args.show_all as boolean;
+            
+            let workspaceText = '🏢 当前工作空间信息:\n\n';
+            
+            if (currentWorkspace) {
+              workspaceText += `📋 团队: ${currentWorkspace.teamName}\n`;
+              workspaceText += `   🆔 ID: ${currentWorkspace.teamId}\n\n`;
+              workspaceText += `📁 项目: ${currentWorkspace.projectName}\n`;
+              workspaceText += `   🆔 ID: ${currentWorkspace.projectId}\n\n`;
+              workspaceText += `🔒 安全模式: ${APIPOST_SECURITY_MODE}\n`;
+            } else {
+              workspaceText += '❌ 工作空间未初始化\n';
+              workspaceText += '💡 请使用 apipost_workspace action:switch 切换到可用的工作空间\n\n';
+            }
+            
+            if (showAll) {
+              try {
+                workspaceText += '\n📋 可用团队和项目:\n\n';
+                
+                const allTeamsRes = await apiClient.get('/open/team/list');
+                const allTeams = allTeamsRes.data.data || [];
+                
+                for (const team of allTeams) {
+                  workspaceText += `📋 团队: ${team.name} (${team.team_id})\n`;
+                  
+                  try {
+                    const teamProjectsRes = await apiClient.get('/open/project/list', {
+                      params: { team_id: team.team_id, action: 0 }
+                    });
+                    const teamProjects = teamProjectsRes.data.data || [];
+                    
+                    if (teamProjects.length > 0) {
+                      teamProjects.forEach((project: any) => {
+                        workspaceText += `   📁 ${project.name} (${project.project_id})\n`;
+                      });
+                    } else {
+                      workspaceText += `   📭 无可用项目\n`;
+                    }
+                  } catch (error) {
+                    workspaceText += `   ❌ 获取项目列表失败\n`;
+                  }
+                  workspaceText += '\n';
+                }
+              } catch (error) {
+                workspaceText += `\n❌ 获取可用团队列表失败: ${error}\n`;
+              }
+            }
+            
+            return {
+              content: [{ type: 'text', text: workspaceText }]
+            };
+
+          case 'list_teams':
+            // 列出团队
+            logWithTime('📋 获取团队列表');
+            const teamsResult = await apiClient.get('/open/team/list');
+            
+            if (teamsResult.data.code !== 0) {
+              throw new Error(`获取团队列表失败: ${teamsResult.data.msg}`);
+            }
+            
+            const teams = teamsResult.data.data || [];
+            const showDetails = args.show_details as boolean;
+            
+            let teamsText = `📋 可用团队列表 (共 ${teams.length} 个):\n\n`;
+            
+            if (teams.length === 0) {
+              teamsText += '📭 未找到可用团队\n';
+            } else {
+              teams.forEach((team: any, index: number) => {
+                const num = (index + 1).toString().padStart(2, ' ');
+                const isCurrent = currentWorkspace?.teamId === team.team_id ? ' ⭐ 当前' : '';
+                
+                teamsText += `${num}. ${team.name}${isCurrent}\n`;
+                teamsText += `     🆔 ID: ${team.team_id}\n`;
+                
+                if (showDetails) {
+                  teamsText += `     📅 创建时间: ${team.created_at || '未知'}\n`;
+                  teamsText += `     👤 创建者: ${team.creator_name || '未知'}\n`;
+                  if (team.description) {
+                    teamsText += `     📝 描述: ${team.description}\n`;
+                  }
+                }
+                teamsText += '\n';
+              });
+            }
+            
+            if (currentWorkspace) {
+              teamsText += `💡 当前团队: ${currentWorkspace.teamName} (${currentWorkspace.teamId})\n`;
+            }
+            teamsText += '\n💡 使用 apipost_workspace action:switch 切换团队和项目';
+            
+            return {
+              content: [{ type: 'text', text: teamsText }]
+            };
+
+          case 'list_projects':
+            // 列出项目
+            const targetTeamId = (args.team_id as string) || currentWorkspace?.teamId;
+            if (!targetTeamId) {
+              throw new Error('请指定团队ID或确保已初始化工作空间');
+            }
+            
+            logWithTime('📁 获取项目列表');
+            const projectsResult = await apiClient.get('/open/project/list', {
+              params: { team_id: targetTeamId, action: 0 }
+            });
+            
+            if (projectsResult.data.code !== 0) {
+              throw new Error(`获取项目列表失败: ${projectsResult.data.msg}`);
+            }
+            
+            const projects = projectsResult.data.data || [];
+            const showProjectDetails = args.show_details as boolean;
+            
+            // 获取团队信息
+            const teamsRes = await apiClient.get('/open/team/list');
+            const currentTeam = teamsRes.data.data?.find((t: any) => t.team_id === targetTeamId);
+            const teamName = currentTeam?.name || targetTeamId;
+            
+            let projectsText = `📁 团队 "${teamName}" 的项目列表 (共 ${projects.length} 个):\n\n`;
+            
+            if (projects.length === 0) {
+              projectsText += '📭 该团队下未找到项目\n';
+            } else {
+              projects.forEach((project: any, index: number) => {
+                const num = (index + 1).toString().padStart(2, ' ');
+                const isCurrent = currentWorkspace?.projectId === project.project_id ? ' ⭐ 当前' : '';
+                
+                projectsText += `${num}. ${project.name}${isCurrent}\n`;
+                projectsText += `     🆔 ID: ${project.project_id}\n`;
+                
+                if (showProjectDetails) {
+                  projectsText += `     📅 创建时间: ${project.created_at || '未知'}\n`;
+                  projectsText += `     👤 创建者: ${project.creator_name || '未知'}\n`;
+                  if (project.description) {
+                    projectsText += `     📝 描述: ${project.description}\n`;
+                  }
+                  projectsText += `     🔒 可见性: ${project.is_public ? '公开' : '私有'}\n`;
+                }
+                projectsText += '\n';
+              });
+            }
+            
+            if (currentWorkspace && currentWorkspace.teamId === targetTeamId) {
+              projectsText += `💡 当前项目: ${currentWorkspace.projectName} (${currentWorkspace.projectId})\n`;
+            }
+            projectsText += '\n💡 使用 apipost_workspace action:switch 切换到指定项目';
+            
+            return {
+              content: [{ type: 'text', text: projectsText }]
+            };
+
+          case 'switch':
+            // 切换工作空间
+            const newTeamId = args.team_id as string;
+            const newProjectId = args.project_id as string;
+            const teamNameToSwitch = args.team_name as string;
+            const projectNameToSwitch = args.project_name as string;
+            
+            logWithTime('🔄 切换工作空间');
+            
+            // 如果提供了名称，先查找对应的ID
+            let finalTeamId = newTeamId;
+            let finalProjectId = newProjectId;
+            
+            if (teamNameToSwitch && !newTeamId) {
+              const teamsRes = await apiClient.get('/open/team/list');
+              const team = teamsRes.data.data?.find((t: any) => t.name === teamNameToSwitch);
+              if (!team) {
+                throw new Error(`未找到名称为 "${teamNameToSwitch}" 的团队`);
+              }
+              finalTeamId = team.team_id;
+            }
+            
+            if (projectNameToSwitch && !newProjectId) {
+              if (!finalTeamId) {
+                throw new Error('切换到指定项目需要先指定团队');
+              }
+              const projectsRes = await apiClient.get('/open/project/list', {
+                params: { team_id: finalTeamId, action: 0 }
+              });
+              const project = projectsRes.data.data?.find((p: any) => p.name === projectNameToSwitch);
+              if (!project) {
+                throw new Error(`在团队中未找到名称为 "${projectNameToSwitch}" 的项目`);
+              }
+              finalProjectId = project.project_id;
+            }
+            
+            if (!finalTeamId || !finalProjectId) {
+              throw new Error('请提供团队ID和项目ID，或者提供团队名称和项目名称');
+            }
+            
+            // 验证团队和项目是否存在且可访问
+            const teamCheckRes = await apiClient.get('/open/team/list');
+            const targetTeam = teamCheckRes.data.data?.find((t: any) => t.team_id === finalTeamId);
+            if (!targetTeam) {
+              throw new Error(`团队ID "${finalTeamId}" 不存在或无权限访问`);
+            }
+            
+            const projectCheckRes = await apiClient.get('/open/project/list', {
+              params: { team_id: finalTeamId, action: 0 }
+            });
+            const targetProject = projectCheckRes.data.data?.find((p: any) => p.project_id === finalProjectId);
+            if (!targetProject) {
+              throw new Error(`项目ID "${finalProjectId}" 在指定团队中不存在或无权限访问`);
+            }
+            
+            // 更新工作空间
+            const oldWorkspace = currentWorkspace;
+            currentWorkspace = {
+              teamId: finalTeamId,
+              teamName: targetTeam.name,
+              projectId: finalProjectId,
+              projectName: targetProject.name
+            };
+            
+            logWithTime('✅ 工作空间切换成功');
+            
+            let switchText = '🔄 工作空间切换成功！\n\n';
+            
+            if (oldWorkspace) {
+              switchText += `📤 原工作空间:\n`;
+              switchText += `   团队: ${oldWorkspace.teamName} (${oldWorkspace.teamId})\n`;
+              switchText += `   项目: ${oldWorkspace.projectName} (${oldWorkspace.projectId})\n\n`;
+            }
+            
+            switchText += `📥 新工作空间:\n`;
+            switchText += `   团队: ${currentWorkspace.teamName} (${currentWorkspace.teamId})\n`;
+            switchText += `   项目: ${currentWorkspace.projectName} (${currentWorkspace.projectId})\n\n`;
+            switchText += `✨ 现在可以在新的工作空间中进行 API 操作了！`;
+            
+            return {
+              content: [{ type: 'text', text: switchText }]
+            };
+
+          default:
+            throw new Error(`未知的操作类型: ${action}. 可用操作: current, list_teams, list_projects, switch`);
+        }
 
       case 'apipost_smart_create':
         if (!checkSecurityPermission('write')) {
