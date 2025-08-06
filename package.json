@@ -1,0 +1,26 @@
+{
+  "name": "apipost-mcp",
+  "version": "1.0.0",
+  "description": "ApiPost MCP - API文档管理工具，支持接口创建、修改、查看和批量操作",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "watch": "tsx watch src/index.ts"
+  },
+  "keywords": ["mcp", "apipost", "api", "documentation", "cursor"],
+  "author": "jlcodes <jlcodes@163.com> (https://github.com/jlcodes99)",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.4.0",
+    "axios": "^1.6.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
