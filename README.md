@@ -68,8 +68,8 @@ npm install && npm run build
 
 | 工具 | 功能 | 主要参数 |
 |------|------|---------|
-| `apipost_test_connection` | **连接测试** | `random_string` |
-| `apipost_workspace` | **工作空间管理** | `action` (必需) |
+| `apipost_test_connection` | 连接测试 | `random_string` |
+| `apipost_workspace` | 工作空间管理 | `action` (必需) |
 | `apipost_smart_create` | 创建接口 | `method`, `url`, `name` |
 | `apipost_list` | 强化列表搜索 | `search`, `parent_id`, `target_type`, `show_structure`, `recursive`, `group_by_folder` |
 | `apipost_detail` | 查看详情 | `target_id` |
