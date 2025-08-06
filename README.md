@@ -4,14 +4,15 @@
 
 ## 功能
 
-- API接口创建、查看、修改、删除
-- 增量更新和字段删除
-- 强化的目录层级搜索和父子关系定位
-- 递归搜索子目录，支持深度限制
-- 多维度搜索和批量操作
-- 树形结构和分组显示
-- 完整路径显示
-- 支持完整的参数配置
+- **连接测试** - 一键验证MCP服务器状态和配置
+- **API接口管理** - 创建、查看、修改、删除接口文档
+- **增量更新** - 支持字段级别的精确更新和删除
+- **层级搜索** - 强化的目录层级搜索和父子关系定位
+- **递归浏览** - 递归搜索子目录，支持深度限制
+- **多维筛选** - 多维度搜索和批量操作
+- **结构化显示** - 树形结构和分组显示
+- **路径导航** - 完整路径显示，快速定位
+- **权限管理** - 多种安全模式，灵活的操作权限控制
 
 ## 安装
 
@@ -66,11 +67,21 @@ npm install && npm run build
 
 | 工具 | 功能 | 主要参数 |
 |------|------|---------|
+| `apipost_test_connection` | **连接测试** | `random_string` |
 | `apipost_smart_create` | 创建接口 | `method`, `url`, `name` |
-| `apipost_detail` | 查看详情 | `target_id` |
 | `apipost_list` | 强化列表搜索 | `search`, `parent_id`, `target_type`, `show_structure`, `recursive`, `group_by_folder` |
+| `apipost_detail` | 查看详情 | `target_id` |
 | `apipost_update` | 修改接口 | `target_id`, 其他可选 |
 | `apipost_delete` | 删除接口 | `api_ids` |
+
+### apipost_test_connection 说明
+
+**快速诊断工具**，适合首次使用或故障排查：
+- ✅ 验证MCP服务器连接状态
+- 🔧 检查环境变量配置
+- 🏢 显示当前工作空间信息  
+- 🛠️ 检查操作权限和安全模式
+- 📊 提供系统环境详情
 
 ### apipost_list 参数说明
 
