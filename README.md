@@ -33,7 +33,7 @@
 - 或使用包管理器：
   ```bash
   # macOS (使用 Homebrew)
-  brew install node
+  sudu brew install node
   
   # Ubuntu/Debian
   sudo apt update && sudo apt install nodejs npm
