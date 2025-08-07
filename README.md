@@ -17,6 +17,39 @@
 
 ## 安装
 
+### 环境要求
+
+在开始安装之前，请确保您的系统已安装以下环境：
+
+| 环境 | 版本要求 | 说明 |
+|------|---------|------|
+| **Node.js** | >= 18.0.0 | JavaScript 运行环境（MCP SDK 官方最低要求） |
+| **npm** | >= 8.0.0 | Node.js 包管理器（通常随 Node.js 一起安装） |
+
+#### 环境安装指南
+
+**Node.js 安装：**
+- 访问 [Node.js 官网](https://nodejs.org/) 下载 LTS 版本
+- 或使用包管理器：
+  ```bash
+  # macOS (使用 Homebrew)
+  brew install node
+  
+  # Ubuntu/Debian
+  sudo apt update && sudo apt install nodejs npm
+  
+  # CentOS/RHEL
+  sudo yum install nodejs npm
+  ```
+
+**验证安装：**
+```bash
+node --version   # 应显示 v18.0.0 或更高版本
+npm --version    # 应显示 8.0.0 或更高版本
+```
+
+### 开始安装
+
 ```bash
 git clone https://github.com/jlcodes99/apipost-mcp.git
 cd apipost-mcp
