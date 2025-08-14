@@ -6,6 +6,7 @@
 
 - **连接测试** - 一键验证MCP服务器状态和配置
 - **工作空间管理** - 查看、切换团队和项目工作空间
+- **目录管理** - 创建API文档目录，支持层级结构
 - **API接口管理** - 创建、查看、修改、删除接口文档
 - **增量更新** - 支持字段级别的精确更新和删除
 - **层级搜索** - 强化的目录层级搜索和父子关系定位
@@ -103,6 +104,7 @@ npm install && npm run build
 |------|------|---------|
 | `apipost_test_connection` | 连接测试 | `random_string` |
 | `apipost_workspace` | 工作空间管理 | `action` (必需) |
+| `apipost_create_folder` | 创建目录 | `name`, `parent_id` |
 | `apipost_smart_create` | 创建接口 | `method`, `url`, `name` |
 | `apipost_list` | 强化列表搜索 | `search`, `parent_id`, `target_type`, `show_structure`, `recursive`, `group_by_folder` |
 | `apipost_detail` | 查看详情 | `target_id` |
@@ -144,6 +146,25 @@ apipost_workspace action: "list_projects" team_id: "your_team_id"
 apipost_workspace action: "switch" team_name: "团队名" project_name: "项目名"
 ```
 
+### apipost_create_folder 说明
+
+**API文档目录创建工具**，支持在指定父目录下创建新的文件夹：
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | 目录名称 |
+| `parent_id` | string | 否 | 父目录ID，使用"0"表示根目录，默认为"0" |
+| `description` | string | 否 | 目录描述（可选） |
+
+**使用示例：**
+```
+# 在根目录创建目录
+apipost_create_folder name: "用户管理" description: "用户相关接口"
+
+# 在指定目录下创建子目录
+apipost_create_folder name: "认证接口" parent_id: "folder_123" description: "用户认证相关接口"
+```
+
 ### apipost_list 参数说明
 
 | 参数 | 类型 | 说明 |
@@ -159,6 +180,32 @@ apipost_workspace action: "switch" team_name: "团队名" project_name: "项目�
 | `limit` | number | 显示数量限制（默认50，最大200） |
 | `show_all` | boolean | 显示全部（忽略limit限制） |
 
+### apipost_smart_create 说明
+
+**API接口文档生成器**，支持通过分离参数创建完整的API文档，包括请求参数、响应格式、认证方式等：
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `method` | string | 是 | HTTP方法：GET, POST, PUT, DELETE |
+| `url` | string | 是 | 接口URL路径 |
+| `name` | string | 是 | 接口名称 |
+| `parent_id` | string | 否 | 父目录ID，使用"0"表示根目录，默认为"0" |
+| `description` | string | 否 | 接口详细描述 |
+| `headers` | string | 否 | Headers参数JSON数组字符串 |
+| `query` | string | 否 | Query参数JSON数组字符串 |
+| `body` | string | 否 | Body参数JSON数组字符串 |
+| `cookies` | string | 否 | Cookies参数JSON数组字符串 |
+| `auth` | string | 否 | 认证配置JSON字符串 |
+| `responses` | string | 否 | 响应示例JSON数组字符串 |
+
+**使用示例：**
+```
+# 在根目录创建接口
+apipost_smart_create method: "POST" url: "/api/users" name: "创建用户"
+
+# 在指定目录下创建接口
+apipost_smart_create method: "GET" url: "/api/users/{id}" name: "获取用户详情" parent_id: "folder_123"
+```
 
 ## 获取 Token
 
