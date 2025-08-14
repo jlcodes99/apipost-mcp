@@ -701,6 +701,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           required: ['action']
         }
       },
+      {
+        name: 'apipost_create_folder',
+        description: '创建API文档目录，支持在指定父目录下创建新的文件夹',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: '目录名称' },
+            parent_id: { type: 'string', description: '父目录ID，使用"0"表示根目录，默认为"0"' },
+            description: { type: 'string', description: '目录描述（可选）' }
+          },
+          required: ['name'],
+          additionalProperties: false
+        }
+      },
     {
       name: 'apipost_smart_create',
       description: 'API接口文档生成器。支持通过分离参数创建完整的API文档，包括请求参数、响应格式、认证方式等。',
@@ -1124,6 +1138,159 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
           default:
             throw new Error(`未知的操作类型: ${action}. 可用操作: current, list_teams, list_projects, switch`);
         }
+
+      case 'apipost_create_folder':
+        if (!checkSecurityPermission('write')) {
+          throw new Error(`🔒 安全模式 "${APIPOST_SECURITY_MODE}" 不允许创建操作。需要 "limited" 或 "full" 模式。`);
+        }
+        
+        const folderName = args.name as string;
+        const folderParentId = (args.parent_id as string) || '0';
+        const folderDescription = (args.description as string) || '';
+        
+        if (!folderName) {
+          throw new Error('请提供目录名称');
+        }
+        
+        // 生成目录模板
+        const folderTemplate = {
+          project_id: currentWorkspace!.projectId,
+          target_id: generateId(),
+          parent_id: folderParentId,
+          target_type: 'folder',
+          name: folderName,
+          sort: 0,
+          version: 0,
+          server_id: '0',
+          status: 1,
+          is_changed: 1,
+          is_create: 1,
+          description: folderDescription,
+          request: {
+            header: { parameter: [] },
+            query: { parameter: [] },
+            body: { parameter: [] },
+            cookie: { parameter: [] },
+            auth: {
+              type: 'inherit',
+              kv: { key: '', value: '', in: 'header' },
+              bearer: { key: '' },
+              basic: { username: '', password: '' },
+              digest: {
+                username: '',
+                password: '',
+                realm: '',
+                nonce: '',
+                algorithm: 'MD5',
+                qop: '',
+                nc: '',
+                cnonce: '',
+                opaque: '',
+                disableRetryRequest: false
+              },
+              oauth1: {
+                consumerKey: '',
+                consumerSecret: '',
+                signatureMethod: 'HMAC-SHA1',
+                addEmptyParamsToSign: true,
+                includeBodyHash: true,
+                addParamsToHeader: false,
+                realm: '',
+                version: '1.0',
+                nonce: '',
+                timestamp: '',
+                verifier: '',
+                callback: '',
+                tokenSecret: '',
+                token: '',
+                disableHeaderEncoding: false
+              },
+              hawk: {
+                authId: '',
+                authKey: '',
+                algorithm: '',
+                user: '',
+                nonce: '',
+                extraData: '',
+                app: '',
+                delegation: '',
+                timestamp: '',
+                includePayloadHash: false
+              },
+              awsv4: {
+                accessKey: '',
+                secretKey: '',
+                region: '',
+                service: '',
+                sessionToken: '',
+                addAuthDataToQuery: false
+              },
+              ntlm: {
+                username: '',
+                password: '',
+                domain: '',
+                workstation: '',
+                disableRetryRequest: false
+              },
+              edgegrid: {
+                accessToken: '',
+                clientToken: '',
+                clientSecret: '',
+                nonce: '',
+                timestamp: '',
+                baseURi: '',
+                headersToSign: ''
+              },
+              noauth: {},
+              jwt: {
+                addTokenTo: 'header',
+                algorithm: 'HS256',
+                secret: '',
+                isSecretBase64Encoded: false,
+                payload: '',
+                headerPrefix: 'Bearer',
+                queryParamKey: 'token',
+                header: ''
+              },
+              asap: {
+                alg: 'HS256',
+                iss: '',
+                aud: '',
+                kid: '',
+                privateKey: '',
+                sub: '',
+                claims: '',
+                exp: ''
+              }
+            },
+            pre_tasks: [],
+            post_tasks: []
+          },
+          is_force: -1,
+          is_deleted: -1,
+          is_conflicted: -1,
+          mark_id: '1'
+        };
+        
+        // 创建目录
+        const createFolderResult = await apiClient.post('/open/apis/create', folderTemplate);
+        
+        if (createFolderResult.data.code !== 0) {
+          throw new Error(`创建目录失败: ${createFolderResult.data.msg}`);
+        }
+        
+        logWithTime(`✅ 目录创建成功!
+目录名称: ${folderName}
+目录ID: ${folderTemplate.target_id}
+父目录ID: ${folderParentId}
+描述: ${folderDescription || '无描述'}`);
+        
+        return {
+          content: [{
+            type: 'text',
+            text: `目录创建成功!\n名称: ${folderName}\n目录ID: ${folderTemplate.target_id}\n父目录ID: ${folderParentId}${folderDescription ? '\n描述: ' + folderDescription : ''}`
+          }]
+        };
 
       case 'apipost_smart_create':
         if (!checkSecurityPermission('write')) {
@@ -1592,7 +1759,7 @@ async function main() {
   await server.connect(transport);
     
     console.error('✅ ApiPost MCP 启动成功!');
-    console.error('📊 可用工具: apipost_smart_create, apipost_list, apipost_update, apipost_delete');
+    console.error('📊 可用工具: apipost_create_folder, apipost_smart_create, apipost_list, apipost_update, apipost_delete');
     
     console.error('📈 等待工具调用...');
     console.error('='.repeat(50));
