@@ -724,6 +724,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'DELETE'], description: 'HTTP方法' },
           url: { type: 'string', description: '接口URL路径' },
           name: { type: 'string', description: '接口名称' },
+          parent_id: { type: 'string', description: '父目录ID，使用"0"表示根目录，默认为"0"' },
           description: { type: 'string', description: '接口详细描述（可选）' },
           headers: { type: 'string', description: 'Headers参数JSON数组字符串（可选）。格式：[{"key":"Content-Type","desc":"内容类型","type":"string","required":true,"example":"application/json"}]' },
           query: { type: 'string', description: 'Query参数JSON数组字符串（可选）。格式：[{"key":"page","desc":"页码","type":"integer","required":false,"example":"1"}]' },
@@ -1306,6 +1307,8 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
             config
           );
           template.project_id = currentWorkspace!.projectId;
+          // 设置父目录ID
+          template.parent_id = (args.parent_id as string) || '0';
           const headerCount = config.headers?.length || 0;
           const queryCount = config.query?.length || 0;
           const bodyCount = config.body?.length || 0;
