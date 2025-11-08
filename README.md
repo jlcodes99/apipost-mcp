@@ -2,6 +2,10 @@
 
 基于 MCP 协议和 [ApiPost 官方 OpenAPI](https://docs.apipost.net/docs/detail/2a37986cbc64000?target_id=23796913b176e1) 实现的 API 管理工具。
 
+<a href="https://glama.ai/mcp/servers/@jlcodes99/apipost-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@jlcodes99/apipost-mcp/badge" alt="ApiPost MCP server" />
+</a>
+
 ## 功能
 
 - **连接测试** - 一键验证MCP服务器状态和配置
