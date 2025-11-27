@@ -180,31 +180,25 @@ apipost_create_folder name: "认证接口" parent_id: "folder_123" description: 
 | `limit` | number | 显示数量限制（默认50，最大200） |
 | `show_all` | boolean | 显示全部（忽略limit限制） |
 
-### apipost_smart_create 说明
+### apipost_smart_create 说明（字段列表驱动）
 
-**API接口文档生成器**，支持通过分离参数创建完整的API文档，包括请求参数、响应格式、认证方式等：
+规则（强制）：
+- `responses` 只传 `fields`，不要传 `data`；所有字段必须带 `desc`。
+- headers/query/body/cookies 用字段列表字符串，嵌套用 `.`，数组用 `[]`（如 `meta.flags.debug`、`items[].id`），example 填真实值，不要放 JSON 字符串。
+- 如需父级描述（如 `meta`、`meta.flags`），在字段列表中显式添加该父级并填写 `desc`。
+- 可选 `APIPOST_INLINE_COMMENTS=true` 时，raw 会按 `desc` 生成行内注释（mock 始终为纯 JSON）。
 
-| 参数 | 类型 | 必需 | 说明 |
-|------|------|------|------|
-| `method` | string | 是 | HTTP方法：GET, POST, PUT, DELETE |
-| `url` | string | 是 | 接口URL路径 |
-| `name` | string | 是 | 接口名称 |
-| `parent_id` | string | 否 | 父目录ID，使用"0"表示根目录，默认为"0" |
-| `description` | string | 否 | 接口详细描述 |
-| `headers` | string | 否 | Headers参数JSON数组字符串 |
-| `query` | string | 否 | Query参数JSON数组字符串 |
-| `body` | string | 否 | Body参数JSON数组字符串 |
-| `cookies` | string | 否 | Cookies参数JSON数组字符串 |
-| `auth` | string | 否 | 认证配置JSON字符串 |
-| `responses` | string | 否 | 响应示例JSON数组字符串 |
+必填：`method`、`url`、`name`。其他字段（均为字符串化 JSON 数组/对象）：
+- headers/query/body/cookies：`[{"key":"X-Request-ID","type":"string","required":true,"example":"req-1","desc":"说明"}]`
+- responses：`[{"name":"成功","status":200,"fields":[{"key":"code","type":"integer","example":0,"desc":"状态码"},{"key":"data.items[].id","type":"string","example":"1","desc":"商品ID"}]}]`
+- auth：`{"type":"bearer","bearer":{"key":"your_token"}}`
+  
+字段类型：`string`/`integer`/`number`/`boolean`/`object`/`array`/`null`
 
-**使用示例：**
-```
-# 在根目录创建接口
-apipost_smart_create method: "POST" url: "/api/users" name: "创建用户"
-
-# 在指定目录下创建接口
-apipost_smart_create method: "GET" url: "/api/users/{id}" name: "获取用户详情" parent_id: "folder_123"
+示例（嵌套）：
+```json
+"body": "[{\"key\":\"user.id\",\"type\":\"integer\",\"required\":true,\"example\":9001,\"desc\":\"用户ID\"},{\"key\":\"user.profile.tags[]\",\"type\":\"string\",\"example\":\"vip\",\"desc\":\"标签\"}]",
+"responses": "[{\"name\":\"成功\",\"status\":200,\"fields\":[{\"key\":\"code\",\"type\":\"integer\",\"example\":0,\"desc\":\"状态码\"},{\"key\":\"data.user.profile.tags[]\",\"type\":\"string\",\"example\":\"vip\",\"desc\":\"标签\"}]}]"
 ```
 
 ## 获取 Token

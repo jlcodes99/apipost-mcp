@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0] - 2025-11-27
+
+### 🔄 重构与优化
+- 字段列表全面驱动：headers/query/body/cookies/responses 统一用字段列表自动生成 ApiPost 所需结构，调用更简洁、传输体积更小、节省 token
+- responses 仅接受 fields 自动生成 data，不再使用 data 入参；所有字段（含父级）必须提供 desc，保证文档可读性
+- 父级节点可显式描述，未提供时自动补位且不展示大块 JSON；可选 `APIPOST_INLINE_COMMENTS=true` 按 desc 生成 raw 行内注释（mock 始终为纯 JSON）
+
 ## [1.1.0] - 2025-08-14
 
 ### 🆕 新增功能
