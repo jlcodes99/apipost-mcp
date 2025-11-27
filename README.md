@@ -183,9 +183,9 @@ apipost_create_folder name: "认证接口" parent_id: "folder_123" description: 
 ### apipost_smart_create 说明（字段列表驱动）
 
 规则（强制）：
-- `responses` 只传 `fields`，不要传 `data`；所有字段必须带 `desc`。
+- `responses` 只传 `fields`，不要传 `data`；所有字段（含父级）必须带 `desc`。
 - headers/query/body/cookies 用字段列表字符串，嵌套用 `.`，数组用 `[]`（如 `meta.flags.debug`、`items[].id`），example 填真实值，不要放 JSON 字符串。
-- 如需父级描述（如 `meta`、`meta.flags`），在字段列表中显式添加该父级并填写 `desc`。
+- 父级需显式声明并写 `desc`，示例：`{"key":"data","type":"object","desc":"返回体"},{"key":"data.user","type":"object","desc":"用户"},{"key":"data.user.id","type":"integer","example":1,"desc":"用户ID"}`。
 - 可选 `APIPOST_INLINE_COMMENTS=true` 时，raw 会按 `desc` 生成行内注释（mock 始终为纯 JSON）。
 
 必填：`method`、`url`、`name`。其他字段（均为字符串化 JSON 数组/对象）：

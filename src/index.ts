@@ -870,7 +870,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
         {
             name: 'apipost_smart_create',
-            description: 'API接口文档生成器（字段列表驱动）。注意：responses 必须只传 fields，不传 data；headers/query/body/cookies 统一使用字段列表，嵌套用 .，数组用 []，example 填真实值（不要 JSON 字符串）；所有字段必须提供 desc（含父级）。如需父级描述（如 meta、meta.flags），在字段列表中显式添加该父级并填写 desc。',
+            description: 'API接口文档生成器（字段列表驱动）。规则：responses 只传 fields，不传 data；headers/query/body/cookies 统一用字段列表，嵌套用 .，数组用 []；example 填真实值（不要 JSON 字符串）；所有字段含父级都必须写 desc，父级需显式声明。例如：{"key":"data","desc":"返回体","type":"object"},{"key":"data.user","desc":"用户","type":"object"},{"key":"data.user.id","desc":"用户ID","type":"integer","example":1}',
             inputSchema: {
                 type: 'object',
                 properties: {
@@ -911,7 +911,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
         {
             name: 'apipost_update',
-            description: '修改API接口文档。注意：responses 只用 fields（必填），不要传 data；headers/query/body/cookies 统一用字段列表，嵌套用 .，数组用 []，example 填真实值；所有字段必须提供 desc，父级如需描述请在字段列表中显式添加该父级并填写 desc。',
+            description: '修改API接口文档。规则同创建：responses 只用 fields（必填），不要传 data；headers/query/body/cookies 统一用字段列表，嵌套用 .，数组用 []，example 填真实值；所有字段含父级必须写 desc，父级需显式声明。例如：{"key":"data","desc":"返回体","type":"object"},{"key":"data.user","desc":"用户","type":"object"},{"key":"data.user.id","desc":"用户ID","type":"integer","example":1}',
             inputSchema: {
                 type: 'object',
                 properties: {
