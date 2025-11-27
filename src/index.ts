@@ -19,6 +19,7 @@ const APIPOST_SECURITY_MODE = process.env.APIPOST_SECURITY_MODE || 'limited'; //
 const APIPOST_DEFAULT_TEAM_NAME = process.env.APIPOST_DEFAULT_TEAM_NAME;
 const APIPOST_DEFAULT_PROJECT_NAME = process.env.APIPOST_DEFAULT_PROJECT_NAME;
 const APIPOST_INLINE_COMMENTS = (process.env.APIPOST_INLINE_COMMENTS || 'false').toLowerCase() === 'true';
+const APIPOST_URL_PREFIX = process.env.APIPOST_URL_PREFIX || ''; // URL前缀，如 {{host}}
 // API客户端
 const apiClient = axios.create({
     baseURL: APIPOST_HOST,
@@ -40,6 +41,16 @@ function checkSecurityPermission(operation) {
             logWithTime(`⚠️ 未知的安全模式: ${APIPOST_SECURITY_MODE}, 默认为只读模式`);
             return operation === 'read';
     }
+}
+// URL前缀处理
+function applyUrlPrefix(url) {
+    if (!url || !APIPOST_URL_PREFIX) return url;
+    // 如果url已经包含了前缀，则不重复添加
+    if (url.startsWith(APIPOST_URL_PREFIX)) return url;
+    // 确保拼接时斜杠正确处理
+    const prefix = APIPOST_URL_PREFIX.endsWith('/') ? APIPOST_URL_PREFIX.slice(0, -1) : APIPOST_URL_PREFIX;
+    const path = url.startsWith('/') ? url : '/' + url;
+    return prefix + path;
 }
 // 生成ID
 function generateId() {
@@ -720,7 +731,7 @@ function generateApiTemplate(method, url, name, config = {}) {
         parent_id: '0',
         name,
         method,
-        url,
+        url: applyUrlPrefix(url),
         protocol: 'http/1.1',
         description: config.description || `${name} - ${method} ${url}`,
         version: 3,
@@ -968,18 +979,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     const startTime = Date.now();
     try {
-        logWithTime(`🚀 开始执行工具: ${name}`);
         if (!currentWorkspace) {
-            logWithTime('🔄 初始化工作空间...', startTime);
             await initWorkspace(startTime);
         }
         switch (name) {
             case 'apipost_test_connection':
-                logWithTime('🔍 连接测试');
-                logWithTime('🔧 验证环境变量');
-                logWithTime('🌐 测试API连通性');
-                logWithTime('📋 获取工作空间信息');
-                logWithTime('✅ 连接测试完成!');
                 const connectionInfo = {
                     status: '✅ 连接正常',
                     mcp_version: '1.0.0',
@@ -994,7 +998,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         token_configured: !!APIPOST_TOKEN,
                         host_configured: !!APIPOST_HOST,
                         node_version: process.version,
-                        platform: process.platform
+                        platform: process.platform,
+                        url_prefix: APIPOST_URL_PREFIX
                     },
                     available_operations: {
                         create_api: checkSecurityPermission('write'),
@@ -1023,6 +1028,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
 🔧 环境配置:
 • Token配置: ${connectionInfo.environment.token_configured ? '✅ 已配置' : '❌ 未配置'}
 • Host配置: ${connectionInfo.environment.host_configured ? '✅ 已配置' : '❌ 未配置'}
+• URL前缀: ${connectionInfo.environment.url_prefix || '（未配置）'}
 • Node版本: ${connectionInfo.environment.node_version}
 • 系统平台: ${connectionInfo.environment.platform}
 
@@ -1092,7 +1098,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
                         };
                     case 'list_teams':
                         // 列出团队
-                        logWithTime('📋 获取团队列表');
+
                         const teamsResult = await apiClient.get('/open/team/list');
                         if (teamsResult.data.code !== 0) {
                             throw new Error(`获取团队列表失败: ${teamsResult.data.msg}`);
@@ -1132,7 +1138,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
                         if (!targetTeamId) {
                             throw new Error('请指定团队ID或确保已初始化工作空间');
                         }
-                        logWithTime('📁 获取项目列表');
+
                         const projectsResult = await apiClient.get('/open/project/list', {
                             params: { team_id: targetTeamId, action: 0 }
                         });
@@ -1179,7 +1185,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
                         const newProjectId = args.project_id;
                         const teamNameToSwitch = args.team_name;
                         const projectNameToSwitch = args.project_name;
-                        logWithTime('🔄 切换工作空间');
+
                         // 如果提供了名称，先查找对应的ID
                         let finalTeamId = newTeamId;
                         let finalProjectId = newProjectId;
@@ -1228,7 +1234,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
                             projectId: finalProjectId,
                             projectName: targetProject.name
                         };
-                        logWithTime('✅ 工作空间切换成功');
+
                         let switchText = '🔄 工作空间切换成功！\n\n';
                         if (oldWorkspace) {
                             switchText += `📤 原工作空间:\n`;
@@ -1379,11 +1385,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
                 if (createFolderResult.data.code !== 0) {
                     throw new Error(`创建目录失败: ${createFolderResult.data.msg}`);
                 }
-                logWithTime(`✅ 目录创建成功!
-目录名称: ${folderName}
-目录ID: ${folderTemplate.target_id}
-父目录ID: ${folderParentId}
-描述: ${folderDescription || '无描述'}`);
+
                 return {
                     content: [{
                             type: 'text',
@@ -1408,13 +1410,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
                 if (createResult.data.code !== 0) {
                     throw new Error(`创建失败: ${createResult.data.msg}`);
                 }
-                logWithTime(`
-✅ API创建成功!
-目标ID: ${createResult.data.data.target_id}
-接口名称: ${args.name}
-请求方法: ${args.method}
-接口地址: ${args.url}
-字段统计: Headers(${headerCount}) Query(${queryCount}) Body(${bodyCount}) 响应(${responseCount})`);
+
                 return {
                     content: [{
                             type: 'text',
@@ -1490,8 +1486,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
                     filterInfo.push(`深度限制: ${depth}`);
                 const logInfo = filterInfo.length > 0 ? `\n筛选条件: ${filterInfo.join(', ')}` : '';
                 const limitInfo = isLimited ? `\n显示限制: 前${limit}条` : '';
-                logWithTime(`✅ 接口列表获取成功!
-总数: ${totalCount}个, 筛选后: ${filteredCount}个${logInfo}${limitInfo}`);
+
                 return {
                     content: [{ type: 'text', text: listResult_display }]
                 };
@@ -1502,7 +1497,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
                 const targetId = args.target_id;
                 const newName = args.name;
                 const newMethod = args.method;
-                const newUrl = args.url;
+                const newUrl = args.url ? applyUrlPrefix(args.url) : undefined;
                 if (!targetId) {
                     throw new Error('请提供要修改的API接口ID');
                 }
@@ -1599,13 +1594,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
                 if (providedFields.size > 0)
                     changedFields.push('配置');
                 const changedFieldsText = changedFields.length > 0 ? `\n修改字段: ${changedFields.join(', ')}` : '\n仅更新版本';
-                logWithTime(`
-✅ 接口修改成功!
-目标ID: ${targetId}
-接口名称: ${newName || originalApi.name}
-请求方法: ${newMethod || originalApi.method}
-接口地址: ${newUrl || originalApi.url}
-版本: v${updateTemplate.version}${changedFieldsText}`);
+
                 let updateText = `接口修改成功!\n接口ID: ${targetId}\n`;
                 if (newName)
                     updateText += `新名称: ${newName}\n`;
@@ -1738,7 +1727,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
                 else {
                     detailText += `   (无响应示例)\n`;
                 }
-                logWithTime(`✅ 接口详情获取成功! 接口ID: ${detailTargetId}`);
+
                 return {
                     content: [{ type: 'text', text: detailText }]
                 };
@@ -1758,11 +1747,7 @@ ${connectionInfo.workspace ? `• 团队: ${connectionInfo.workspace.team_name}
                 if (deleteResult.data.code !== 0) {
                     throw new Error(`删除失败: ${deleteResult.data.msg}`);
                 }
-                logWithTime(`
-✅ 批量删除完成!
-删除数量: ${apiIds.length}个接口
-删除的接口ID:
-${apiIds.map((id, index) => `${index + 1}. ${id}`).join('\n')}`);
+
                 let deleteText = `批量删除完成!\n删除数量: ${apiIds.length} 个接口\n删除的ID:\n`;
                 apiIds.forEach((id, index) => {
                     deleteText += `${index + 1}. ${id}\n`;

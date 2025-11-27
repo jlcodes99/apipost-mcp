@@ -72,7 +72,8 @@ npm install && npm run build
         "APIPOST_HOST": "https://open.apipost.net",
         "APIPOST_SECURITY_MODE": "limited",
         "APIPOST_DEFAULT_TEAM_NAME": "你的团队名称",
-        "APIPOST_DEFAULT_PROJECT_NAME": "你的项目名称"
+        "APIPOST_DEFAULT_PROJECT_NAME": "你的项目名称",
+        "APIPOST_URL_PREFIX": "接口前缀可定义常量比如{{host}}"
       }
     }
   }
@@ -88,6 +89,7 @@ npm install && npm run build
 | `APIPOST_SECURITY_MODE` | 否 | 安全模式：`readonly`, `limited`, `full` |
 | `APIPOST_DEFAULT_TEAM_NAME` | 否 | 默认团队名称 |
 | `APIPOST_DEFAULT_PROJECT_NAME` | 否 | 默认项目名称 |
+| `APIPOST_URL_PREFIX` | 否 | 接口URL前缀，自动拼接到所有新建/修改的接口路径，如 `{{host}}` |
 
 ### 安全模式说明
 
@@ -187,6 +189,7 @@ apipost_create_folder name: "认证接口" parent_id: "folder_123" description: 
 - headers/query/body/cookies 用字段列表字符串，嵌套用 `.`，数组用 `[]`（如 `meta.flags.debug`、`items[].id`），example 填真实值，不要放 JSON 字符串。
 - 父级需显式声明并写 `desc`，示例：`{"key":"data","type":"object","desc":"返回体"},{"key":"data.user","type":"object","desc":"用户"},{"key":"data.user.id","type":"integer","example":1,"desc":"用户ID"}`。
 - 可选 `APIPOST_INLINE_COMMENTS=true` 时，raw 会按 `desc` 生成行内注释（mock 始终为纯 JSON）。
+- 可选 `APIPOST_URL_PREFIX={{ajllxa}}` 时，创建或更新接口时会将前缀自动拼接到 URL（避免手动重复填写路由常量）。
 
 必填：`method`、`url`、`name`。其他字段（均为字符串化 JSON 数组/对象）：
 - headers/query/body/cookies：`[{"key":"X-Request-ID","type":"string","required":true,"example":"req-1","desc":"说明"}]`
